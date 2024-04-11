@@ -66,17 +66,6 @@ class ImageSubscriber(Node):
             self.camera_info_callback,
             custom_qos_profile)
         self.bridge = CvBridge()
-        self.last_save_time = time.time()
-        self.save_interval = 5  # seconds
-        self.image_folder = '/home/andrei/ros2_ws/images'
-        self.csv_file_path = '/home/andrei/ros2_ws/dataset.csv'
-        os.makedirs(self.image_folder, exist_ok=True)
-        self.csv_file = open(self.csv_file_path, 'w', newline='')
-        self.csv_writer = csv.writer(self.csv_file)
-        # self.csv_writer.writerow(
-        #    ["timestamp", "image_name", "object_name", "x", "y", "z", "roll", "pitch", "yaw", "size_x", "size_y",
-        #     "size_z", "x_min_bb", "y_min_bb", "x_max_bb", "y_max_bb"])
-        self.image_counter = 0
         self.objects_data = {
             "asphalt_plane": {
                 "pose": [0.027118, -0.028406, 0],
@@ -272,40 +261,33 @@ class ImageSubscriber(Node):
             [0, 0, 1]
         ])
 
-        # Verificare că centrul optic este la jumătatea lățimii și înălțimii imaginii
-        assert self.c_x == self.image_width / 2, "Centrul optic X nu este la mijlocul lățimii imaginii!"
-        assert self.c_y == self.image_height / 2, "Centrul optic Y nu este la mijlocul înălțimii imaginii!"
+        # Check that the optical center is at the middle of the width and height of the image
+        assert self.c_x == self.image_width / 2, "Optical center X is not in the middle of the image width!"
+        assert self.c_y == self.image_height / 2, "The optical center Y is not at the middle of the image height!"
 
-        # Verificare că horizontal_fov este setat corect
-        assert self.horizontal_fov == 2.09, "Horizontal FOV nu corespunde cu valoarea din URDF!"
+        # Check that horizontal_fov is set correctly
+        assert self.horizontal_fov == 2.09, "Horizontal FOV does not correspond to the value in the URDF!"
 
-        # Initialize extrinsic parameters (will be updated based on drone's pose)
-        # self.R = np.eye(3)
-        # self.t = np.array([[0.2], [0], [0]])  # Position of camera relative to base_link (0.2 meters forward)
-
-        # Initialize camera parameters with placeholders (they will be updated in callbacks)
-        #self.K = np.eye(3)
         self.R = np.eye(3)
         self.t = np.zeros((3, 1))
-        # Adăugarea unei noi chei pentru fiecare obiect pentru a stoca matricea de transformare
+        # Adding a new key for each object to store the transformation matrix
         for obj_name, obj_data in self.objects_data.items():
             pose = obj_data['pose']
             orientation = obj_data['orientation']
-            # Calculăm matricea de rotație folosind funcția calculate_rot_matrix
+            # Calculate the rotation matrix using the calculate_rot_matrix function
             R_obj = calculate_rot_matrix(*orientation)
-            # Creăm matricea de transformare pentru fiecare obiect
+            # Create the transformation matrix for each object
             self.objects_data[obj_name]['transformation_matrix'] = calculate_transformation_matrix(*pose, *orientation)
 
-    camera_transformation = np.eye(4)  # Inițializăm ca matrice identitate 4x4
-    camera_transformation[:3, 3] = [0.2, 0, 0]  # Aplicăm translația de 0.2 metri pe axa X
+    camera_transformation = np.eye(4)  # Initialize as a 4x4 identity matrix
+    camera_transformation[:3, 3] = [0.2, 0, 0]  # Apply the translation of 0.2 meters on the X axis
 
     def camera_info_callback(self, msg):
         # Get the current time for timestamp
         current_time = self.get_clock().now().to_msg()
         self.K = np.array(msg.k).reshape((3, 3))
-        # Print the intrinsic matrix and timestamp
-        # self.get_logger().info(f'[{current_time}] Parametrii intrinseci updatati (K):\n{self.K}')
-
+        # Print intrinsic parameters
+        print(f'Intrinsic Matrix (K):\n{self.K}')
     def image_callback(self, msg):
         try:
             cv_image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
@@ -328,91 +310,98 @@ class ImageSubscriber(Node):
         # Update extrinsic parameters
         self.t = position.reshape((3, 1))
 
-        #print(f'{self.R} === {self.t.transpose()}')
-        #quaternion = np.array([msg.orientation.x, msg.orientation.y,
-        #                        msg.orientation.z, msg.orientation.w])
-        # Normalize the quaternion
-        #quaternion /= np.linalg.norm(quaternion)
-        #self.R = R.from_quat(quaternion).as_matrix()
-
-        #print(f"Normalized Quaternion: {quaternion}")
-        # print(f"Calculated Rotation Matrix:\n{self.R}")
+        print(f'Position: {self.t.transpose()}')
+        print(f'Rotation Matrix:\n{self.R}')
 
     def project_and_draw_objects(self, image):
-        #preluam informatiile despre obstacol
-        #pos,rot = ?
 
-        #matricea de transformare de la obstacol la lume
-        #transform_obstacol_world=?
+        # Logic for transformation chain:
+        # retrieve the information about the obstacle
+        # pos,rot = ?
 
-        #preluam informatii despre drona
-        #pos,rot = ?
+        # the transformation matrix from obstacle to world
+        # transform_obstacol_world=?
 
-        #matricea de transformare de la drona la lume
-        #transform_drone_world = ?
+        # we are retrieving information about the drone
+        # pos,rot = ?
 
+        # the drone-to-world transformation matrix
+        # transform_drone_world = ?
 
-        #matricea de transformare de la lume la drona(inversa)
-        #transform_world_drone = ?
+        # transformation matrix from world to drone (inverse)
+        # transform_world_drone = ?
 
-        #matricea de transformare de la drona la camera
-        #transform_drone_camera = ?
+        # the transformation matrix from the drone to the camera
+        # transform_drone_camera = ?
 
+        # the projection matrix
+        # projection_matrix = ?
 
-        #matricea de proiectie
-        #projection_matrix = ?
+        # we choose a point in 3D
+        # x,y,z = ?
 
-        #choose point in 3D
-        #x,y,z = ?
+        # prepare for transformation
+        # point_matrix_3D = ?
 
-        #prepare for transformation
-        #point_matrix_3D = ?
+        # apply transformation
+        # point_matrix_2D = point_matrix_3D @ transform_obstacol_world @ transform_world_drone @transform_drone_camera @ projection_matrix
 
-        #apply transformation
-        #point_matrix_2D = point_matrix_3D @(np.dot) transform_obstacol_world @ transform_world_drone @transform_drone_camera @ projection_matrix
-
-        # Preluăm informațiile despre obstacol (conul, în acest caz)
+        # Get the position and orientation of the obstacle (cone)
         obstacle_pos = np.array(self.objects_data["Construction Cone"]["pose"])
         obstacle_rot = np.array(self.objects_data["Construction Cone"]["orientation"])
 
-        # Matricea de transformare de la obstacol la lume
+        # Compute the obstacle-to-world transformation matrix
         transform_obstacle_world = calculate_transformation_matrix(*obstacle_pos, *obstacle_rot)
 
-        # Preluăm informații despre drona
+        # Get the position and orientation of the drone
         drone_pos = np.array([self.t[0, 0], self.t[1, 0], self.t[2, 0]])
         drone_rot = R.from_matrix(self.R).as_euler('xyz')
 
-        # Matricea de transformare de la drona la lume
+        # Compute the drone-to-world transformation matrix
         transform_drone_world = calculate_transformation_matrix(*drone_pos, *drone_rot)
 
-        # Matricea de transformare de la lume la drona (inversa)
+        # Invert the transform to get the matrix from world to drone
         transform_world_drone = np.linalg.inv(transform_drone_world)
 
-        # Matricea de transformare de la drona la camera
-        # Presupunem că avem un offset fix pentru camera în raport cu drona
-        camera_offset = np.array([0.2, 0, 0])  # Offset-ul camerei pe axa X
+        # Defines the camera offset in drone coordinates
+        camera_offset_drone_frame = np.array([0.2, 0, 0])
+
+        # Defines the rotation required to align the camera with the Z axis of the world
+        rotation_matrix_camera = R.from_euler('y', np.pi / 2).as_matrix()
+
+        # Combine translation and rotation to get the full transformation from drone to camera
         transform_drone_camera = np.eye(4)
-        transform_drone_camera[:3, 3] = camera_offset
+        transform_drone_camera[:3, :3] = rotation_matrix_camera
+        transform_drone_camera[:3, 3] = camera_offset_drone_frame
 
-        # Matricea de proiectie (intrinseci camera)
-        projection_matrix = self.K
-
-        # Alege un punct în 3D (de exemplu, centrul conului)
-        x, y, z = obstacle_pos
-
-        # Pregătește punctul pentru transformare
+        # Project the 3D point in room space
+        # Here, adjust the X,Y,Z values to move the point in the image (for debug only)
+        x, y, z = obstacle_pos + np.array([-0.2, 0, 0])
         point_matrix_3D = np.array([x, y, z, 1])
 
-        # Aplică transformările
-        point_matrix_2D = point_matrix_3D @ transform_obstacle_world @ transform_world_drone @ transform_drone_camera
-        point_matrix_2D = np.dot(projection_matrix, point_matrix_2D[:3])  # Folosim doar componentele XYZ
+        point_in_world_space = transform_obstacle_world.dot(point_matrix_3D)
 
-        # Normalizează pentru a obține coordonatele în spațiul imagine
-        point_2D = point_matrix_2D[:2] / point_matrix_2D[2]
-        # Verifică dacă punctul este în limitele imaginii
+        print(f'3D Point in Obstacle Space: {point_matrix_3D}')
+        print(f'3D Point in World Space: {point_in_world_space}')
+        point_in_camera_space = transform_world_drone.dot(transform_drone_camera).dot(point_in_world_space)
+        print(f'3D Point in Camera Space: {point_in_camera_space}')
+
+        # Project the point into the 2D image space using the camera projection matrix
+        point_matrix_2D_homogeneous = self.K.dot(point_in_camera_space[:3])
+
+        # Normalize the 2D coordinates to get the pixel position
+        if point_matrix_2D_homogeneous[2] != 0:
+            point_2D = point_matrix_2D_homogeneous[:2] / point_matrix_2D_homogeneous[2]
+        else:
+            # If Z is zero, we can't do the division; we return the image unchanged
+            print("Division by zero in 2D point projection.")
+            return image
+
+        # Check if the point is within the image bounds and draw it
         if 0 <= point_2D[0] < self.image_width and 0 <= point_2D[1] < self.image_height:
-            # Desenează punctul pe imagine
-            cv2.circle(image, (int(point_2D[0]), int(point_2D[1])), 5, (0, 255, 0), -1)
+            cv2.circle(image, (int(point_2D[0]), int(point_2D[1])), radius=2, color=(0, 255, 0), thickness=-1)
+        else:
+            print("The point is outside the bounds of the image.")
 
         return image
 
@@ -421,7 +410,7 @@ class ImageSubscriber(Node):
 def main(args=None):
     rclpy.init(args=args)
     image_subscriber = ImageSubscriber()
-    cv2.namedWindow("Imagine cu obiecte", cv2.WINDOW_NORMAL)  # Initialize the window
+    cv2.namedWindow("Image with objects", cv2.WINDOW_NORMAL)  # Initialize the window
     rclpy.spin(image_subscriber)
     cv2.destroyAllWindows()  # Destroy the window when done
     image_subscriber.destroy_node()
